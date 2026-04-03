@@ -452,7 +452,6 @@ def transform_date_difference_precise(data, params):
     for row in data:
         row[target] = date_difference_precise(row.get(col1), row.get(col2), swap_if_first_date_less_than_second=swap)
     return data
-
 # -------------------------
 # Main Transform Dispatcher
 # -------------------------

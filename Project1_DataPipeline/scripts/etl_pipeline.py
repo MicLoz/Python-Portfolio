@@ -1,6 +1,7 @@
 import pandas as pd
 import logging
-from transform import transform_data, infer_column_types, preprocess_data
+from transform import transform_data, preprocess_data
+from validation import validate_transform_config
 from test_data import generate_test_data
 from configs import (
     basic_config, type_chaos_config, date_chaos_config, aggregation_config,
@@ -80,6 +81,15 @@ def run_pipeline(config: dict):
 
     df = extract()
     df = preprocess(df)
+
+    # validate transform config
+    missing_cols = validate_transform_config(df, config)
+    if missing_cols:
+        raise ValueError(
+            f"Transform config references missing columns: {missing_cols}. "
+            "Please check your config."
+        )
+
     df = transform(df, config)
     load(df)
 
