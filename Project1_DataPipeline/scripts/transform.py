@@ -257,6 +257,8 @@ def transform_data(data, config):
             for row in data:
                 if col in row:
                     row[col] = multiply(row[col], factor)
+                else:
+                    logger.debug(f"Column '{col}' missing in row: {row}")
             logger.info(f"Multiplied column '{col}' by {factor}")
 
         elif operation == "add":
@@ -265,6 +267,8 @@ def transform_data(data, config):
             for row in data:
                 if col in row:
                     row[col] = add(row[col], value)
+                else:
+                    logger.debug(f"Column '{col}' missing in row: {row}")
             logger.info(f"Added {value} to column '{col}'")
 
         elif operation == "subtract":
@@ -273,6 +277,8 @@ def transform_data(data, config):
             for row in data:
                 if col in row:
                     row[col] = subtract(row[col], value)
+                else:
+                    logger.debug(f"Column '{col}' missing in row: {row}")
             logger.info(f"Subtracted {value} from column '{col}'")
 
         elif operation == "divide":
@@ -281,6 +287,8 @@ def transform_data(data, config):
             for row in data:
                 if col in row:
                     row[col] = divide(row[col], value)
+                else:
+                    logger.debug(f"Column '{col}' missing in row: {row}")
             logger.info(f"Divided column '{col}' by {value}")
 
         elif operation == "modulus":
@@ -289,6 +297,8 @@ def transform_data(data, config):
             for row in data:
                 if col in row:
                     row[col] = modulus(row[col], value)
+                else:
+                    logger.debug(f"Column '{col}' missing in row: {row}")
             logger.info(f"Applied modulus {value} to column '{col}'")
 
         elif operation == "replace_null":
@@ -297,6 +307,8 @@ def transform_data(data, config):
             for row in data:
                 if col in row:
                     row[col] = replace_null(row[col], replacement)
+                else:
+                    logger.debug(f"Column '{col}' missing in row: {row}")
             logger.info(f"Replaced nulls in column '{col}' with '{replacement}'")
 
         elif operation == "deduplicate_rows":
