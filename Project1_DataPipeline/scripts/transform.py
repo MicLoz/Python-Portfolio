@@ -112,37 +112,53 @@ def find_string_in_column(value, search_string):
     return search_string in str(value)
 
 def add_to_date(date_value, days=0, months=0, years=0, date_format="%Y-%m-%d"):
-    if isinstance(date_value, str):
-        date_value = datetime.strptime(date_value, date_format)
+    date_value = parse_date_safe(date_value, date_format)
+    if date_value is None:
+        return None
     return date_value + relativedelta(days=days, months=months, years=years)
 
-def date_difference(date1, date2, unit="days", date_format="%Y-%m-%d"):
-    if isinstance(date1, str):
-        date1 = datetime.strptime(date1, date_format)
-    if isinstance(date2, str):
-        date2 = datetime.strptime(date2, date_format)
+def parse_date_safe(value, date_format):
+    try:
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            return datetime.strptime(value, date_format)
+        return None
+    except (ValueError, TypeError) as e:
+        logger.debug(f"Failed to parse date '{value}': {e}")
+        return None
+
+def date_difference(date1, date2, unit="days", date_format="%Y-%m-%d", swap_if_first_date_less_than_second=False):
+    date1 = parse_date_safe(date1, date_format)
+    date2 = parse_date_safe(date2, date_format)
+    if date1 is None or date2 is None:
+        return None
+
+    if swap_if_first_date_less_than_second and date1 < date2:
+        date1, date2 = date2, date1
 
     delta = date1 - date2
 
-    if unit == "days":
-        return delta.days
-    elif unit == "seconds":
+    if unit == "seconds":
         return delta.total_seconds()
     elif unit == "minutes":
         return delta.total_seconds() / 60
     elif unit == "hours":
         return delta.total_seconds() / 3600
+    elif unit == "days":
+        return delta.days
     else:
+        logger.debug(f"Invalid unit '{unit}' passed to date_difference")
         return None
 
-def date_difference_precise(date1, date2, date_format="%Y-%m-%d"):
-    if isinstance(date1, str):
-        date1 = datetime.strptime(date1, date_format)
-    if isinstance(date2, str):
-        date2 = datetime.strptime(date2, date_format)
+def date_difference_precise(date1, date2, date_format="%Y-%m-%d", swap_if_first_date_less_than_second=False):
+    date1 = parse_date_safe(date1, date_format)
+    date2 = parse_date_safe(date2, date_format)
+    if date1 is None or date2 is None:
+        return None
 
-    if date1 < date2:
-        date1, date2 = date2, date1  # ensure positive difference
+    if swap_if_first_date_less_than_second and date1 < date2:
+        date1, date2 = date2, date1
 
     delta = relativedelta(date1, date2)
 
@@ -158,25 +174,28 @@ def date_difference_precise(date1, date2, date_format="%Y-%m-%d"):
 def filter_by_date(data, column, start=None, end=None, date_format="%Y-%m-%d"):
     result = []
 
+    start_dt = parse_date_safe(start, date_format) if start else None
+    end_dt = parse_date_safe(end, date_format) if end else None
+
     for row in data:
-        value = row.get(column)
-
-        if isinstance(value, str):
-            value = datetime.strptime(value, date_format)
-
-        if start:
-            start_dt = datetime.strptime(start, date_format)
-            if value < start_dt:
-                continue
-
-        if end:
-            end_dt = datetime.strptime(end, date_format)
-            if value > end_dt:
-                continue
+        value = parse_date_safe(row.get(column), date_format)
+        if value is None:
+            continue
+        if start_dt and value < start_dt:
+            continue
+        if end_dt and value > end_dt:
+            continue
         result.append(row)
 
     return result
 
+AGGREGATION_FUNCTIONS = {
+    "sum_values": sum_values,
+    "average_values": average_values,
+    "min_value": min_value,
+    "max_value": max_value,
+    "count_values": count_values,
+}
 
 def group_by_aggregate(data, group_by_columns, aggregations):
     """
@@ -216,23 +235,13 @@ def group_by_aggregate(data, group_by_columns, aggregations):
         for col, agg_type in aggregations.items():
             values = [r[col] for r in rows if col in r and r[col] is not None]
 
-            if agg_type == "sum_values":
-                new_row[col] = sum_values(values)
+            func = AGGREGATION_FUNCTIONS.get(agg_type)
 
-            elif agg_type == "average_values":
-                new_row[col] = average_values(values)
-
-            elif agg_type == "min_value":
-                new_row[col] = min_value(values)
-
-            elif agg_type == "max_value":
-                new_row[col] = max_value(values)
-
-            elif agg_type == "count_values":
-                new_row[col] = count_values(values)
-
+            if func:
+                new_row[col] = func(values)
             else:
-                new_row[col] = None  # unknown aggregation
+                logger.warning(f"Unknown aggregation '{agg_type}' for column '{col}'")
+                new_row[col] = None
 
         result.append(new_row)
 
@@ -249,10 +258,15 @@ def transform_data(data, config):
         "replace_null": {"column": "name", "replacement": "N/A"},
         "deduplicate": {"key_columns": ["id"]}
     }
+
+    NOTE: This function mutates input data in-place.
     """
     for operation, params in config.items():
         if operation == "multiply":
             col = params["column"]
+            if not col:
+                logger.warning(f"Missing 'column' in params for {operation}")
+                continue
             factor = params.get("factor", 1)
             for row in data:
                 if col in row:
@@ -263,6 +277,9 @@ def transform_data(data, config):
 
         elif operation == "add":
             col = params["column"]
+            if not col:
+                logger.warning(f"Missing 'column' in params for {operation}")
+                continue
             value = params.get("value", 0)
             for row in data:
                 if col in row:
@@ -273,6 +290,9 @@ def transform_data(data, config):
 
         elif operation == "subtract":
             col = params["column"]
+            if not col:
+                logger.warning(f"Missing 'column' in params for {operation}")
+                continue
             value = params.get("value", 0)
             for row in data:
                 if col in row:
@@ -283,6 +303,9 @@ def transform_data(data, config):
 
         elif operation == "divide":
             col = params["column"]
+            if not col:
+                logger.warning(f"Missing 'column' in params for {operation}")
+                continue
             value = params.get("value", 1)
             for row in data:
                 if col in row:
@@ -293,6 +316,9 @@ def transform_data(data, config):
 
         elif operation == "modulus":
             col = params["column"]
+            if not col:
+                logger.warning(f"Missing 'column' in params for {operation}")
+                continue
             value = params.get("value", 1)
             for row in data:
                 if col in row:
@@ -303,6 +329,9 @@ def transform_data(data, config):
 
         elif operation == "replace_null":
             col = params["column"]
+            if not col:
+                logger.warning(f"Missing 'column' in params for {operation}")
+                continue
             replacement = params.get("replacement", "N/A")
             for row in data:
                 if col in row:
@@ -335,10 +364,34 @@ def transform_data(data, config):
             col1 = params["column1"]
             col2 = params["column2"]
             target = params["target_column"]
+            swap = params.get("swap_if_first_date_less_than_second", False)  # default False
+            date_format = params.get("date_format", "%Y-%m-%d")  # default %Y-%m-%d
             unit = params.get("unit", "days")
             for row in data:
                 if col1 in row and col2 in row:
-                    row[target] = date_difference(row[col1], row[col2], unit=unit)
+                    row[target] = date_difference(
+                        row[col1],
+                        row[col2],
+                        date_format=date_format,
+                        swap_if_first_date_less_than_second=swap,
+                        unit=unit
+                    )
+
+        elif operation == "date_difference_precise":
+            col1 = params["column1"]
+            col2 = params["column2"]
+            target = params["target_column"]
+            swap = params.get("swap_if_first_date_less_than_second", False)  # default False
+            date_format = params.get("date_format", "%Y-%m-%d") # default %Y-%m-%d
+            for row in data:
+                if col1 in row and col2 in row:
+                    row[target] = date_difference_precise(
+                        row[col1],
+                        row[col2],
+                        date_format=date_format,
+                        swap_if_first_date_less_than_second=swap
+                    )
+
 
         elif operation == "percentage_difference":
             col1 = params["column1"]
@@ -397,14 +450,6 @@ def transform_data(data, config):
             for row in data:
                 if column in row:
                     row[target] = find_string_in_column(row[column], search_string)
-
-        elif operation == "date_difference_precise":
-            col1 = params["column1"]
-            col2 = params["column2"]
-            target = params["target_column"]
-            for row in data:
-                if col1 in row and col2 in row:
-                    row[target] = date_difference_precise(row[col1], row[col2])
 
         else:
             logger.warning(f"Unknown transformation: {operation}")
