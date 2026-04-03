@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from dateutil.relativedelta import relativedelta  # pip install python-dateutil
 
 logger = logging.getLogger(__name__)
@@ -41,45 +41,49 @@ def divide(number_for_division, value):
         raise TransformTypeError(f"divide: Expected int or float for 'number_for_division', got {type(number_for_division)}")
     if not ensure_type(value, (int, float)):
         raise TransformTypeError(f"divide: Expected int or float for 'value', got {type(value)}")
-    return number_for_division / value
+    if value == 0:
+        return None
+    else:
+        return number_for_division / value
 
 def modulus(number_for_modulus, value):
     if not ensure_type(number_for_modulus, (int, float)):
-        raise TransformTypeError(f"divide: Expected int or float for 'number_for_modulus', got {type(number_for_modulus)}")
+        raise TransformTypeError(f"modulus: Expected int or float for 'number_for_modulus', got {type(number_for_modulus)}")
     if not ensure_type(value, (int, float)):
-        raise TransformTypeError(f"divide: Expected int or float for 'value', got {type(value)}")
+        raise TransformTypeError(f"modulus: Expected int or float for 'value', got {type(value)}")
     return number_for_modulus % value
 
+def filter_numeric_values(values):
+    valid = [v for v in values if ensure_type(v, (int, float))]
+    return valid
+
 def sum_values(values):
-    if not values:
-        return 0
-    return sum(values)
+    valid = filter_numeric_values(values)
+    return sum(valid) if valid else 0
 
 def count_values(values):
-    if not values:
-        return 0
-    return len(values)
+    valid = filter_numeric_values(values)
+    return len(valid) if valid else 0
 
 def average_values(values):
-    if not values:
-        return None
-    return sum(values) / len(values)
+    valid = filter_numeric_values(values)
+    return sum(valid) / len(valid) if valid else None
 
 def max_value(values):
-    if not values:
-        return None
-    return max(values)
+    valid = filter_numeric_values(values)
+    return max(valid) if valid else None
 
 def min_value(values):
-    if not values:
-        return None
-    return min(values)
+    valid = filter_numeric_values(values)
+    return min(valid) if valid else None
 
 def percentage_difference(value_one, value_two):
-    if value_one is None or value_two is None:
-        return None
+    if not ensure_type(value_one, (int, float)):
+        raise TransformTypeError(f"percent_diff: Expected int or float for 'value_one', got {type(value_one)}")
+    if not ensure_type(value_two, (int, float)):
+        raise TransformTypeError(f"percent_diff: Expected int or float for 'value_two', got {type(value_two)}")
     if value_two == 0:
-        return None  # avoid division by zero
+        return None
     return ((value_one - value_two) / value_two) * 100
 
 def replace_null(value, replacement="N/A"):
@@ -92,7 +96,7 @@ def deduplicate_rows(data, key_columns):
     result = []
 
     for row in data:
-        key = tuple(row[col] for col in key_columns)
+        key = tuple(row.get(col) for col in key_columns)
         if key not in seen:
             seen.add(key)
             result.append(row)
@@ -192,7 +196,7 @@ def group_by_aggregate(data, group_by_columns, aggregations):
 
     # Step 1: Group rows
     for row in data:
-        key = tuple(row[col] for col in group_by_columns)
+        key = tuple(row.get(col) for col in group_by_columns)
 
         if key not in grouped:
             grouped[key] = []
@@ -210,7 +214,7 @@ def group_by_aggregate(data, group_by_columns, aggregations):
 
         # Apply aggregations
         for col, agg_type in aggregations.items():
-            values = [r[col] for r in rows if r[col] is not None]
+            values = [r[col] for r in rows if col in r and r[col] is not None]
 
             if agg_type == "sum_values":
                 new_row[col] = sum_values(values)
@@ -251,42 +255,48 @@ def transform_data(data, config):
             col = params["column"]
             factor = params.get("factor", 1)
             for row in data:
-                row[col] = multiply(row[col], factor)
+                if col in row:
+                    row[col] = multiply(row[col], factor)
             logger.info(f"Multiplied column '{col}' by {factor}")
 
         elif operation == "add":
             col = params["column"]
             value = params.get("value", 0)
             for row in data:
-                row[col] = add(row[col], value)
+                if col in row:
+                    row[col] = add(row[col], value)
             logger.info(f"Added {value} to column '{col}'")
 
         elif operation == "subtract":
             col = params["column"]
             value = params.get("value", 0)
             for row in data:
-                row[col] = subtract(row[col], value)
+                if col in row:
+                    row[col] = subtract(row[col], value)
             logger.info(f"Subtracted {value} from column '{col}'")
 
         elif operation == "divide":
             col = params["column"]
             value = params.get("value", 1)
             for row in data:
-                row[col] = divide(row[col], value)
+                if col in row:
+                    row[col] = divide(row[col], value)
             logger.info(f"Divided column '{col}' by {value}")
 
         elif operation == "modulus":
             col = params["column"]
             value = params.get("value", 1)
             for row in data:
-                row[col] = modulus(row[col], value)
+                if col in row:
+                    row[col] = modulus(row[col], value)
             logger.info(f"Applied modulus {value} to column '{col}'")
 
         elif operation == "replace_null":
             col = params["column"]
             replacement = params.get("replacement", "N/A")
             for row in data:
-                row[col] = replace_null(row[col], replacement)
+                if col in row:
+                    row[col] = replace_null(row[col], replacement)
             logger.info(f"Replaced nulls in column '{col}' with '{replacement}'")
 
         elif operation == "deduplicate_rows":
@@ -306,7 +316,8 @@ def transform_data(data, config):
             months = params.get("months", 0)
             years = params.get("years", 0)
             for row in data:
-                row[target] = add_to_date(row[column], days=days, months=months, years=years)
+                if column in row:
+                    row[target] = add_to_date(row[column], days=days, months=months, years=years)
 
         elif operation == "date_difference":
             col1 = params["column1"]
@@ -314,44 +325,46 @@ def transform_data(data, config):
             target = params["target_column"]
             unit = params.get("unit", "days")
             for row in data:
-                row[target] = date_difference(row[col1], row[col2], unit=unit)
+                if col1 in row and col2 in row:
+                    row[target] = date_difference(row[col1], row[col2], unit=unit)
 
         elif operation == "percentage_difference":
             col1 = params["column1"]
             col2 = params["column2"]
             target = params["target_column"]
             for row in data:
-                row[target] = percentage_difference(row[col1], row[col2])
+                if col1 in row and col2 in row:
+                    row[target] = percentage_difference(row[col1], row[col2])
 
         elif operation == "sum_values":
             columns = params["columns"]
             target = params["target_column"]
             for row in data:
-                row[target] = sum_values([row[c] for c in columns])
+                row[target] = sum_values([row[c] for c in columns if c in row])
 
         elif operation == "count_values":
             columns = params["columns"]
             target = params["target_column"]
             for row in data:
-                row[target] = count_values([row[c] for c in columns])
+                row[target] = count_values([row[c] for c in columns if c in row])
 
         elif operation == "average_values":
             columns = params["columns"]
             target = params["target_column"]
             for row in data:
-                row[target] = average_values([row[c] for c in columns])
+                row[target] = average_values([row[c] for c in columns if c in row])
 
         elif operation == "max_value":
             columns = params["columns"]
             target = params["target_column"]
             for row in data:
-                row[target] = max_value([row[c] for c in columns])
+                row[target] = max_value([row[c] for c in columns if c in row])
 
         elif operation == "min_value":
             columns = params["columns"]
             target = params["target_column"]
             for row in data:
-                row[target] = min_value([row[c] for c in columns])
+                row[target] = min_value([row[c] for c in columns if c in row])
 
         elif operation == "group_by_aggregate":
             group_cols = params["group_by_columns"]
@@ -363,14 +376,23 @@ def transform_data(data, config):
             target = params["target_column"]
             sep = params.get("sep", " ")
             for row in data:
-                row[target] = concatenate_strings([row[c] for c in columns], sep)
+                row[target] = concatenate_strings([row[c] for c in columns if c in row], sep)
 
         elif operation == "find_string_in_column":
             column = params["column"]
             search_string = params["search_string"]
             target = params["target_column"]
             for row in data:
-                row[target] = find_string_in_column(row[column], search_string)
+                if column in row:
+                    row[target] = find_string_in_column(row[column], search_string)
+
+        elif operation == "date_difference_precise":
+            col1 = params["column1"]
+            col2 = params["column2"]
+            target = params["target_column"]
+            for row in data:
+                if col1 in row and col2 in row:
+                    row[target] = date_difference_precise(row[col1], row[col2])
 
         else:
             logger.warning(f"Unknown transformation: {operation}")
