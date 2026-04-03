@@ -247,6 +247,352 @@ def group_by_aggregate(data, group_by_columns, aggregations):
 
     return result
 
+TRANSFORM_FUNCTIONS = {}
+
+def register_transform(name):
+    def decorator(func):
+        TRANSFORM_FUNCTIONS[name] = func
+        return func
+    return decorator
+
+@register_transform("multiply")
+def transform_multiply(data, params):
+    col = params.get("column")
+    if not col:
+        logger.warning("Missing 'column' in multiply")
+        return data
+
+    factor = params.get("factor", 1)
+
+    for row in data:
+        if col in row:
+            row[col] = multiply(row[col], factor)
+
+    logger.info(f"Multiplied column '{col}' by {factor}")
+    return data
+
+@register_transform("add")
+def transform_add(data, params):
+    col = params.get("column")
+    if not col:
+        logger.warning("Missing 'column' in add")
+        return data
+
+    value = params.get("value", 0)
+
+    for row in data:
+        if col in row:
+            row[col] = add(row[col], value)
+        else:
+            logger.debug(f"Column '{col}' missing in row: {row}")
+
+    logger.info(f"Added {value} to column '{col}'")
+    return data
+
+@register_transform("subtract")
+def transform_subtract(data, params):
+    col = params.get("column")
+    if not col:
+        logger.warning("Missing 'column' in subtract")
+        return data
+
+    value = params.get("value", 0)
+
+    for row in data:
+        if col in row:
+            row[col] = subtract(row[col], value)
+        else:
+            logger.debug(f"Column '{col}' missing in row: {row}")
+    logger.info(f"Subtracted {value} from column '{col}'")
+    return data
+
+@register_transform("divide")
+def transform_divide(data, params):
+    col = params.get("column")
+    if not col:
+        logger.warning("Missing 'column' in divide")
+        return data
+
+    value = params.get("value", 1)
+
+    for row in data:
+        if col in row:
+            row[col] = divide(row[col], value)
+        else:
+            logger.debug(f"Column '{col}' missing in row: {row}")
+    logger.info(f"Divided column '{col}' by {value}")
+    return data
+
+@register_transform("modulus")
+def transform_modulus(data, params):
+    col = params.get("column")
+    if not col:
+        logger.warning("Missing 'column' in modulus")
+        return data
+
+    value = params.get("value", 1)
+
+    for row in data:
+        if col in row:
+            row[col] = modulus(row[col], value)
+        else:
+            logger.debug(f"Column '{col}' missing in row: {row}")
+    logger.info(f"Applied modulus {value} to column '{col}'")
+    return data
+
+@register_transform("replace_null")
+def transform_replace_null(data, params):
+    col = params.get("column")
+    if not col:
+        logger.warning("Missing 'column' in replace_null")
+        return data
+
+    replacement = params.get("replacement", "N/A")
+
+    for row in data:
+        if col in row:
+            row[col] = replace_null(row[col], replacement)
+        else:
+            logger.debug(f"Column '{col}' missing in row: {row}")
+    logger.info(f"Replaced nulls in column '{col}' with '{replacement}'")
+    return data
+
+@register_transform("deduplicate_rows")
+def transform_deduplicate_rows(data, params):
+    key_cols = params.get("key_columns")
+    if not key_cols:
+        logger.warning("Missing 'key_columns' in deduplicate_rows")
+        return data
+
+    return deduplicate_rows(data, key_cols)
+
+@register_transform("filter_by_date")
+def transform_filter_by_date(data, params):
+    column = params.get("column")
+    if not column:
+        logger.warning("Missing 'column' in filter_by_date")
+        return data
+
+    start = params.get("start")
+    end = params.get("end")
+
+    return filter_by_date(data, column, start=start, end=end)
+
+@register_transform("add_to_date")
+def transform_add_to_date(data, params):
+    column = params.get("column")
+    target = params.get("target_column")
+
+    if not column or not target:
+        logger.warning("Missing 'column' or 'target_column' in add_to_date")
+        return data
+
+    days = params.get("days", 0)
+    months = params.get("months", 0)
+    years = params.get("years", 0)
+
+    for row in data:
+        if column in row:
+            row[target] = add_to_date(
+                row[column],
+                days=days,
+                months=months,
+                years=years
+            )
+
+    return data
+
+@register_transform("date_difference")
+def transform_date_difference(data, params):
+    col1 = params.get("column1")
+    col2 = params.get("column2")
+    target = params.get("target_column")
+
+    if not col1 or not col2 or not target:
+        logger.warning("Missing required params in date_difference")
+        return data
+
+    swap = params.get("swap_if_first_date_less_than_second", False)
+    date_format = params.get("date_format", "%Y-%m-%d")
+    unit = params.get("unit", "days")
+
+    for row in data:
+        if col1 in row and col2 in row:
+            row[target] = date_difference(
+                row[col1],
+                row[col2],
+                unit=unit,
+                date_format=date_format,
+                swap_if_first_date_less_than_second=swap
+            )
+
+    return data
+
+
+@register_transform("date_difference_precise")
+def transform_date_difference_precise(data, params):
+    col1 = params.get("column1")
+    col2 = params.get("column2")
+    target = params.get("target_column")
+
+    if not col1 or not col2 or not target:
+        logger.warning("Missing required params in date_difference_precise")
+        return data
+
+    swap = params.get("swap_if_first_date_less_than_second", False)
+    date_format = params.get("date_format", "%Y-%m-%d")
+
+    for row in data:
+        if col1 in row and col2 in row:
+            row[target] = date_difference_precise(
+                row[col1],
+                row[col2],
+                date_format=date_format,
+                swap_if_first_date_less_than_second=swap
+            )
+
+    return data
+
+
+@register_transform("percentage_difference")
+def transform_percentage_difference(data, params):
+    col1 = params.get("column1")
+    col2 = params.get("column2")
+    target = params.get("target_column")
+
+    if not col1 or not col2 or not target:
+        logger.warning("Missing required params in percentage_difference")
+        return data
+
+    for row in data:
+        if col1 in row and col2 in row:
+            row[target] = percentage_difference(row[col1], row[col2])
+
+    return data
+
+
+@register_transform("sum_values")
+def transform_sum_values(data, params):
+    columns = params.get("columns")
+    target = params.get("target_column")
+
+    if not columns or not target:
+        logger.warning("Missing 'columns' or 'target_column' in sum_values")
+        return data
+
+    for row in data:
+        row[target] = sum_values([row[c] for c in columns if c in row])
+
+    return data
+
+
+@register_transform("count_values")
+def transform_count_values(data, params):
+    columns = params.get("columns")
+    target = params.get("target_column")
+
+    if not columns or not target:
+        logger.warning("Missing 'columns' or 'target_column' in count_values")
+        return data
+
+    for row in data:
+        row[target] = count_values([row[c] for c in columns if c in row])
+
+    return data
+
+
+@register_transform("average_values")
+def transform_average_values(data, params):
+    columns = params.get("columns")
+    target = params.get("target_column")
+
+    if not columns or not target:
+        logger.warning("Missing 'columns' or 'target_column' in average_values")
+        return data
+
+    for row in data:
+        row[target] = average_values([row[c] for c in columns if c in row])
+
+    return data
+
+
+@register_transform("max_value")
+def transform_max_value(data, params):
+    columns = params.get("columns")
+    target = params.get("target_column")
+
+    if not columns or not target:
+        logger.warning("Missing 'columns' or 'target_column' in max_value")
+        return data
+
+    for row in data:
+        row[target] = max_value([row[c] for c in columns if c in row])
+
+    return data
+
+
+@register_transform("min_value")
+def transform_min_value(data, params):
+    columns = params.get("columns")
+    target = params.get("target_column")
+
+    if not columns or not target:
+        logger.warning("Missing 'columns' or 'target_column' in min_value")
+        return data
+
+    for row in data:
+        row[target] = min_value([row[c] for c in columns if c in row])
+
+    return data
+
+
+@register_transform("group_by_aggregate")
+def transform_group_by_aggregate(data, params):
+    group_cols = params.get("group_by_columns")
+    aggregations = params.get("aggregations")
+
+    if not group_cols or not aggregations:
+        logger.warning("Missing params in group_by_aggregate")
+        return data
+
+    return group_by_aggregate(data, group_cols, aggregations)
+
+
+@register_transform("concatenate_strings")
+def transform_concatenate_strings(data, params):
+    columns = params.get("columns")
+    target = params.get("target_column")
+
+    if not columns or not target:
+        logger.warning("Missing 'columns' or 'target_column' in concatenate_strings")
+        return data
+
+    sep = params.get("sep", " ")
+
+    for row in data:
+        row[target] = concatenate_strings(
+            [row[c] for c in columns if c in row],
+            sep
+        )
+
+    return data
+
+
+@register_transform("find_string_in_column")
+def transform_find_string_in_column(data, params):
+    column = params.get("column")
+    search_string = params.get("search_string")
+    target = params.get("target_column")
+
+    if not column or not target:
+        logger.warning("Missing params in find_string_in_column")
+        return data
+
+    for row in data:
+        if column in row:
+            row[target] = find_string_in_column(row[column], search_string)
+
+    return data
 
 
 def transform_data(data, config):
@@ -262,196 +608,15 @@ def transform_data(data, config):
     NOTE: This function mutates input data in-place.
     """
     for operation, params in config.items():
-        if operation == "multiply":
-            col = params["column"]
-            if not col:
-                logger.warning(f"Missing 'column' in params for {operation}")
-                continue
-            factor = params.get("factor", 1)
-            for row in data:
-                if col in row:
-                    row[col] = multiply(row[col], factor)
-                else:
-                    logger.debug(f"Column '{col}' missing in row: {row}")
-            logger.info(f"Multiplied column '{col}' by {factor}")
+        func = TRANSFORM_FUNCTIONS.get(operation)
 
-        elif operation == "add":
-            col = params["column"]
-            if not col:
-                logger.warning(f"Missing 'column' in params for {operation}")
-                continue
-            value = params.get("value", 0)
-            for row in data:
-                if col in row:
-                    row[col] = add(row[col], value)
-                else:
-                    logger.debug(f"Column '{col}' missing in row: {row}")
-            logger.info(f"Added {value} to column '{col}'")
-
-        elif operation == "subtract":
-            col = params["column"]
-            if not col:
-                logger.warning(f"Missing 'column' in params for {operation}")
-                continue
-            value = params.get("value", 0)
-            for row in data:
-                if col in row:
-                    row[col] = subtract(row[col], value)
-                else:
-                    logger.debug(f"Column '{col}' missing in row: {row}")
-            logger.info(f"Subtracted {value} from column '{col}'")
-
-        elif operation == "divide":
-            col = params["column"]
-            if not col:
-                logger.warning(f"Missing 'column' in params for {operation}")
-                continue
-            value = params.get("value", 1)
-            for row in data:
-                if col in row:
-                    row[col] = divide(row[col], value)
-                else:
-                    logger.debug(f"Column '{col}' missing in row: {row}")
-            logger.info(f"Divided column '{col}' by {value}")
-
-        elif operation == "modulus":
-            col = params["column"]
-            if not col:
-                logger.warning(f"Missing 'column' in params for {operation}")
-                continue
-            value = params.get("value", 1)
-            for row in data:
-                if col in row:
-                    row[col] = modulus(row[col], value)
-                else:
-                    logger.debug(f"Column '{col}' missing in row: {row}")
-            logger.info(f"Applied modulus {value} to column '{col}'")
-
-        elif operation == "replace_null":
-            col = params["column"]
-            if not col:
-                logger.warning(f"Missing 'column' in params for {operation}")
-                continue
-            replacement = params.get("replacement", "N/A")
-            for row in data:
-                if col in row:
-                    row[col] = replace_null(row[col], replacement)
-                else:
-                    logger.debug(f"Column '{col}' missing in row: {row}")
-            logger.info(f"Replaced nulls in column '{col}' with '{replacement}'")
-
-        elif operation == "deduplicate_rows":
-            key_cols = params["key_columns"]
-            data = deduplicate_rows(data, key_cols)
-
-        elif operation == "filter_by_date":
-            column = params["column"]
-            start = params.get("start")
-            end = params.get("end")
-            data = filter_by_date(data, column, start=start, end=end)
-
-        elif operation == "add_to_date":
-            column = params["column"]
-            target = params["target_column"]
-            days = params.get("days", 0)
-            months = params.get("months", 0)
-            years = params.get("years", 0)
-            for row in data:
-                if column in row:
-                    row[target] = add_to_date(row[column], days=days, months=months, years=years)
-
-        elif operation == "date_difference":
-            col1 = params["column1"]
-            col2 = params["column2"]
-            target = params["target_column"]
-            swap = params.get("swap_if_first_date_less_than_second", False)  # default False
-            date_format = params.get("date_format", "%Y-%m-%d")  # default %Y-%m-%d
-            unit = params.get("unit", "days")
-            for row in data:
-                if col1 in row and col2 in row:
-                    row[target] = date_difference(
-                        row[col1],
-                        row[col2],
-                        date_format=date_format,
-                        swap_if_first_date_less_than_second=swap,
-                        unit=unit
-                    )
-
-        elif operation == "date_difference_precise":
-            col1 = params["column1"]
-            col2 = params["column2"]
-            target = params["target_column"]
-            swap = params.get("swap_if_first_date_less_than_second", False)  # default False
-            date_format = params.get("date_format", "%Y-%m-%d") # default %Y-%m-%d
-            for row in data:
-                if col1 in row and col2 in row:
-                    row[target] = date_difference_precise(
-                        row[col1],
-                        row[col2],
-                        date_format=date_format,
-                        swap_if_first_date_less_than_second=swap
-                    )
-
-
-        elif operation == "percentage_difference":
-            col1 = params["column1"]
-            col2 = params["column2"]
-            target = params["target_column"]
-            for row in data:
-                if col1 in row and col2 in row:
-                    row[target] = percentage_difference(row[col1], row[col2])
-
-        elif operation == "sum_values":
-            columns = params["columns"]
-            target = params["target_column"]
-            for row in data:
-                row[target] = sum_values([row[c] for c in columns if c in row])
-
-        elif operation == "count_values":
-            columns = params["columns"]
-            target = params["target_column"]
-            for row in data:
-                row[target] = count_values([row[c] for c in columns if c in row])
-
-        elif operation == "average_values":
-            columns = params["columns"]
-            target = params["target_column"]
-            for row in data:
-                row[target] = average_values([row[c] for c in columns if c in row])
-
-        elif operation == "max_value":
-            columns = params["columns"]
-            target = params["target_column"]
-            for row in data:
-                row[target] = max_value([row[c] for c in columns if c in row])
-
-        elif operation == "min_value":
-            columns = params["columns"]
-            target = params["target_column"]
-            for row in data:
-                row[target] = min_value([row[c] for c in columns if c in row])
-
-        elif operation == "group_by_aggregate":
-            group_cols = params["group_by_columns"]
-            aggregations = params["aggregations"]
-            data = group_by_aggregate(data, group_cols, aggregations)
-
-        elif operation == "concatenate_strings":
-            columns = params["columns"]
-            target = params["target_column"]
-            sep = params.get("sep", " ")
-            for row in data:
-                row[target] = concatenate_strings([row[c] for c in columns if c in row], sep)
-
-        elif operation == "find_string_in_column":
-            column = params["column"]
-            search_string = params["search_string"]
-            target = params["target_column"]
-            for row in data:
-                if column in row:
-                    row[target] = find_string_in_column(row[column], search_string)
-
-        else:
+        if not func:
             logger.warning(f"Unknown transformation: {operation}")
+            continue
+
+        try:
+            data = func(data, params)
+        except Exception as e:
+            logger.exception(f"Error running transformation '{operation}': {e}")
 
     return data
