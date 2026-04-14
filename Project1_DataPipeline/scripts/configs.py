@@ -5,26 +5,60 @@ Predefined transformation configurations for the ETL pipeline.
 These configs are designed for testing different scenarios, 
 from basic operations to full stress tests and nightmare cases.
 """
+# -----------------------------------
+# Prototyping full (combined) config
+# -----------------------------------
+basic_pipeline_internal = {
+    "extract": {
+        "mode": "internal"
+    },
+    "transform": {
+        "steps": [
+            {"op": "add", "column": "age", "value": 10},
+            {"op": "replace_null", "column": "category", "replacement": "UNKNOWN"}
+        ]
+    },
+    "load": {
+        "mode": "console"
+    }
+}
 
-# -----------------------------
+basic_pipeline_json = {
+    "extract": {
+        "mode": "json",
+        "path": "data/testdata.json"
+    },
+    "transform": {
+        "steps": [
+            {"op": "add", "column": "age", "value": 10},
+            {"op": "replace_null", "column": "category", "replacement": "UNKNOWN"}
+        ]
+    },
+    "load": {
+        "mode": "console"
+    }
+}
+
+
+# --------------------------------
 # Basic / typical transformations
-# -----------------------------
+# --------------------------------
 basic_config = {
     "add": {"column": "age", "value": 10},
     "replace_null": {"column": "category", "replacement": "UNKNOWN"}
 }
 
-# -----------------------------
+# ---------------------------------------
 # Type chaos (intentionally wrong types)
-# -----------------------------
+# ---------------------------------------
 type_chaos_config = {
     "add": {"column": "age", "value": 5},          # may break on string values
     "divide": {"column": "price", "value": 0},     # division by zero
 }
 
-# -----------------------------
+# ------------------------------------------
 # Date chaos (various date transformations)
-# -----------------------------
+# ------------------------------------------
 date_chaos_config = {
     "add_to_date": {
         "column": "date",
@@ -39,9 +73,9 @@ date_chaos_config = {
     }
 }
 
-# -----------------------------
+# ------------------------------------
 # Aggregation-specific configurations
-# -----------------------------
+# ------------------------------------
 aggregation_config = {
     "sum_values": {
         "columns": ["age", "price", "quantity"],
@@ -53,9 +87,9 @@ aggregation_config = {
     }
 }
 
-# -----------------------------
+# -------------------------------------
 # Cleaning / deduplication / filtering
-# -----------------------------
+# -------------------------------------
 cleaning_config = {
     "replace_null": {"column": "text", "replacement": "EMPTY"},
     "deduplicate_rows": {"key_columns": ["id"]},
@@ -66,9 +100,9 @@ cleaning_config = {
     }
 }
 
-# -----------------------------
+# -------------------------------
 # Full stress test configuration
-# -----------------------------
+# -------------------------------
 full_stress_config = {
     "replace_null": {"column": "category", "replacement": "UNKNOWN"},
     "add": {"column": "age", "value": 10},
@@ -96,9 +130,9 @@ full_stress_config = {
     }
 }
 
-# -----------------------------
+# --------------------------------------
 # Nightmare / comprehensive stress test
-# -----------------------------
+# --------------------------------------
 nightmare_config = {
     "replace_null": {"column": "category", "replacement": "UNKNOWN"},
     "add": {"column": "age", "value": 10},

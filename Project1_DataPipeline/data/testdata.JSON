@@ -1,0 +1,167 @@
+[
+    {
+        "id": 19,
+        "age": 25,
+        "price": 10.5,
+        "quantity": 2,
+        "date": "2024-01-15",
+        "category": "A",
+        "text": "I am a clean baseline row from JSON"
+    },
+    {
+        "id": 20,
+        "age": null,
+        "price": null,
+        "quantity": null,
+        "date": null,
+        "category": null,
+        "text": null
+    },
+    {
+        "id": 21,
+        "age": "",
+        "price": "",
+        "quantity": "",
+        "date": "",
+        "category": "",
+        "text": ""
+    },
+    {
+        "id": 22,
+        "age": "31",
+        "price": "99.999",
+        "quantity": "6",
+        "date": "2024-02-02",
+        "category": "C",
+        "text": "string numbers JSON"
+    },
+    {
+        "id": 23,
+        "age": "abcdefgui",
+        "price": "???",
+        "quantity": -11,
+        "date": "2024-02-31",
+        "category": "E",
+        "text": "bad numbers JSON"
+    },
+    {
+        "id": 24,
+        "age": 42,
+        "price": 50.1,
+        "quantity": 4,
+        "date": "15/03/2023",
+        "category": "Z",
+        "text": "different date format JSON 2"
+    },
+    {
+        "id": 25,
+        "age": 64,
+        "price": 34.86,
+        "quantity": 92,
+        "date": "2021-12-30 11:34:59.996",
+        "category": "B",
+        "text": "different date format JSON"
+    },
+    {
+        "id": 26,
+        "age": 51,
+        "price": 20.1,
+        "quantity": 74,
+        "date": "2023/12/30",
+        "category": "E",
+        "text": "US/ISO date formats JSON"
+    },
+    {
+        "id": 27,
+        "age": 46,
+        "price": 16.0,
+        "quantity": 11,
+        "date": "12-25-2022",
+        "category": "A",
+        "text": "MM-DD-YYYY format JSON"
+    },
+    {
+        "id": 28,
+        "age": 999999999,
+        "price": 1e+308,
+        "quantity": 0,
+        "date": "1900-01-01",
+        "category": "Z",
+        "text": "extreme values JSON"
+    },
+    {
+        "id": 29,
+        "age": -9999,
+        "price": -1e+308,
+        "quantity": -6,
+        "date": "2025-12-29",
+        "category": "X",
+        "text": "negative extreme values JSON"
+    },
+    {
+        "id": 30,
+        "age": "np.inf",
+        "price": "-np.inf",
+        "quantity": null,
+        "date": "2025-05-30",
+        "category": "U",
+        "text": "inf, -inf, NaN JSON"
+    },
+    {
+        "id": 19,
+        "age": 25,
+        "price": 10.5,
+        "quantity": 2,
+        "date": "2024-01-15",
+        "category": "A",
+        "text": "duplicate with baseline"
+    },
+    {
+        "id": 32
+    },
+    {
+        "id": 33,
+        "age": 21,
+        "price": 15.6,
+        "quantity": 2,
+        "date": "2024-01-02",
+        "category": "B",
+        "text": "\u00f0\u0178\u201d\u00a5 unicode \n newlines \t tabs !!! JSON"
+    },
+    {
+        "id": 34,
+        "age": 36,
+        "price": 100.1,
+        "quantity": 6,
+        "date": "2024-03-16",
+        "category": "D",
+        "text": "x*1000 JSON"
+    },
+    {
+        "id": 35,
+        "age": 31,
+        "price": 50.3,
+        "quantity": 5,
+        "date": "2025-01-03",
+        "category": "E",
+        "text": "future date JSON"
+    },
+    {
+        "id": 36,
+        "age": 29,
+        "price": 60.54,
+        "quantity": 4,
+        "date": "2023-01-05",
+        "category": "F",
+        "text": "past date JSON"
+    },
+    {
+        "id": 37,
+        "age": 41,
+        "price": 75.5,
+        "quantity": 3,
+        "date": "2024-07-08",
+        "category": "G",
+        "text": "hello|world|test JSON"
+    }
+]

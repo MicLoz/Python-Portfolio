@@ -9,9 +9,9 @@ class TransformTypeError(Exception):
     """Raised when a transformation receives an invalid data type."""
     pass
 
-# -------------------------
+# ------------------------------
 # Preprocessing / Type Inference
-# -------------------------
+# ------------------------------
 
 def infer_column_types(df: pd.DataFrame) -> dict:
     inferred = {}
@@ -160,29 +160,50 @@ def find_string_in_column(value, search_string):
     return search_string in str(value)
 
 def parse_date_safe(value):
+    """
+    Safely parse a value into a datetime object.
+    Handles datetime objects, strings in multiple formats, and NaN/None values.
+    Returns pd.NaT for invalid or missing dates.
+    """
+    if pd.isna(value):
+        return pd.NaT
     if isinstance(value, datetime):
         return value
     if isinstance(value, str):
-        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m-%d-%Y", "%Y-%m-%d %H:%M:%S.%f"):
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y", "%m-%d-%Y",
+                    "%m/%d/%Y", "%Y-%m-%d %H:%M:%S.%f", "%Y/%m/%d %H:%M:%S.%f",
+                    "%d-%m-%Y %H:%M:%S.%f", "%d/%m/%Y %H:%M:%S.%f",
+                    "%m-%d-%Y %H:%M:%S.%f", "%m/%d/%Y %H:%M:%S.%f",
+                    "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M", "%d-%m-%Y %H:%M",
+                    "%d/%m/%Y %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f",
+                    "%Y-%m-%d %H:%M:%S", "%d-%b-%Y", "%d-%b-%Y %H:%M:%S", "%b %d, %Y",
+                    "%b %d, %Y %H:%M:%S", "%d %b %Y", "%d %b %Y %H:%M:%S"
+                    ):
             try:
                 return datetime.strptime(value, fmt)
             except (ValueError, TypeError):
                 continue
-    return None
+    # fallback for anything else
+    return pd.NaT
 
 def add_to_date(date_value, days=0, months=0, years=0):
     date_value = parse_date_safe(date_value)
-    if not date_value:
-        return None
+    if date_value is pd.NaT:
+        return pd.NaT
     return date_value + relativedelta(days=days, months=months, years=years)
+
 
 def date_difference(date1, date2, unit="days", swap_if_first_date_less_than_second=False):
     date1 = parse_date_safe(date1)
     date2 = parse_date_safe(date2)
-    if not date1 or not date2:
-        return None
+
+    # Return pd.NA if either is invalid
+    if date1 is pd.NaT or date2 is pd.NaT:
+        return pd.NA
+
     if swap_if_first_date_less_than_second and date1 < date2:
         date1, date2 = date2, date1
+
     delta = date1 - date2
     if unit == "seconds":
         return delta.total_seconds()
@@ -192,16 +213,31 @@ def date_difference(date1, date2, unit="days", swap_if_first_date_less_than_seco
         return delta.total_seconds() / 3600
     elif unit == "days":
         return delta.days
-    return None
+    return pd.NA
 
 def date_difference_precise(date1, date2, swap_if_first_date_less_than_second=False):
+    """
+    Compute the precise difference between two dates as a dictionary of years, months,
+    days, hours, minutes, and seconds. Returns pd.NA values for invalid dates.
+    """
     date1 = parse_date_safe(date1)
     date2 = parse_date_safe(date2)
-    if not date1 or not date2:
-        return None
+
+    if pd.isna(date1) or pd.isna(date2):
+        return {
+            "years": pd.NA,
+            "months": pd.NA,
+            "days": pd.NA,
+            "hours": pd.NA,
+            "minutes": pd.NA,
+            "seconds": pd.NA
+        }
+
     if swap_if_first_date_less_than_second and date1 < date2:
         date1, date2 = date2, date1
+
     delta = relativedelta(date1, date2)
+
     return {
         "years": delta.years,
         "months": delta.months,
@@ -268,10 +304,15 @@ def group_by_aggregate(data, group_by_columns, aggregations):
 # -------------------------
 
 TRANSFORM_FUNCTIONS = {}
+TRANSFORM_METADATA = {}
 
-def register_transform(name):
+def register_transform(name, column_params=None, required_params=None):
     def decorator(func):
         TRANSFORM_FUNCTIONS[name] = func
+        TRANSFORM_METADATA[name] = {
+            "column_params": column_params or [],
+            "required_params": required_params or []
+        }
         return func
     return decorator
 
@@ -279,7 +320,11 @@ def register_transform(name):
 # Transform Wrappers
 # -------------------------
 
-@register_transform("add")
+@register_transform(
+    name="add",
+    column_params=["column"],
+    required_params=["column"]
+)
 def transform_add(data, params):
     col = params.get("column")
     value = params.get("value", 0)
@@ -288,7 +333,11 @@ def transform_add(data, params):
             row[col] = add(row[col], value)
     return data
 
-@register_transform("subtract")
+@register_transform(
+    name="subtract",
+    column_params=["column"],
+    required_params=["column"]
+)
 def transform_subtract(data, params):
     col = params.get("column")
     value = params.get("value", 0)
@@ -297,7 +346,12 @@ def transform_subtract(data, params):
             row[col] = subtract(row[col], value)
     return data
 
-@register_transform("multiply")
+
+@register_transform(
+    name="multiply",
+    column_params=["column"],
+    required_params=["column"]
+)
 def transform_multiply(data, params):
     col = params.get("column")
     factor = params.get("factor", 1)
@@ -306,7 +360,12 @@ def transform_multiply(data, params):
             row[col] = multiply(row[col], factor)
     return data
 
-@register_transform("divide")
+
+@register_transform(
+    name="divide",
+    column_params=["column"],
+    required_params=["column"]
+)
 def transform_divide(data, params):
     col = params.get("column")
     value = params.get("value", 1)
@@ -315,7 +374,12 @@ def transform_divide(data, params):
             row[col] = divide(row[col], value)
     return data
 
-@register_transform("modulus")
+
+@register_transform(
+    name="modulus",
+    column_params=["column"],
+    required_params=["column"]
+)
 def transform_modulus(data, params):
     col = params.get("column")
     value = params.get("value", 1)
@@ -324,7 +388,12 @@ def transform_modulus(data, params):
             row[col] = modulus(row[col], value)
     return data
 
-@register_transform("replace_null")
+
+@register_transform(
+    name="replace_null",
+    column_params=["column"],
+    required_params=["column"]
+)
 def transform_replace_null(data, params):
     col = params.get("column")
     replacement = params.get("replacement", "N/A")
@@ -333,19 +402,34 @@ def transform_replace_null(data, params):
             row[col] = replace_null(row[col], replacement)
     return data
 
-@register_transform("deduplicate_rows")
+
+@register_transform(
+    name="deduplicate_rows",
+    column_params=["key_columns"],
+    required_params=["key_columns"]
+)
 def transform_deduplicate_rows(data, params):
     keys = params.get("key_columns", [])
     return deduplicate_rows(data, keys)
 
-@register_transform("filter_by_date")
+
+@register_transform(
+    name="filter_by_date",
+    column_params=["column"],
+    required_params=["column"]
+)
 def transform_filter_by_date(data, params):
     col = params.get("column")
     start = params.get("start")
     end = params.get("end")
     return filter_by_date(data, col, start=start, end=end)
 
-@register_transform("add_to_date")
+
+@register_transform(
+    name="add_to_date",
+    column_params=["column"],
+    required_params=["column", "target_column"]
+)
 def transform_add_to_date(data, params):
     col = params.get("column")
     target = params.get("target_column")
@@ -357,7 +441,12 @@ def transform_add_to_date(data, params):
             row[target] = add_to_date(row[col], days=days, months=months, years=years)
     return data
 
-@register_transform("percentage_difference")
+
+@register_transform(
+    name="percentage_difference",
+    column_params=["column1", "column2"],
+    required_params=["column1", "column2", "target_column"]
+)
 def transform_percentage_difference(data, params):
     col1 = params.get("column1")
     col2 = params.get("column2")
@@ -367,7 +456,12 @@ def transform_percentage_difference(data, params):
             row[target] = percentage_difference(row[col1], row[col2])
     return data
 
-@register_transform("concatenate_strings")
+
+@register_transform(
+    name="concatenate_strings",
+    column_params=["columns"],
+    required_params=["columns", "target_column"]
+)
 def transform_concatenate_strings(data, params):
     cols = params.get("columns", [])
     target = params.get("target_column")
@@ -376,7 +470,12 @@ def transform_concatenate_strings(data, params):
         row[target] = concatenate_strings([row.get(c) for c in cols], sep)
     return data
 
-@register_transform("find_string_in_column")
+
+@register_transform(
+    name="find_string_in_column",
+    column_params=["column"],
+    required_params=["column", "target_column"]
+)
 def transform_find_string_in_column(data, params):
     col = params.get("column")
     search = params.get("search_string", "")
@@ -386,7 +485,12 @@ def transform_find_string_in_column(data, params):
             row[target] = find_string_in_column(row[col], search)
     return data
 
-@register_transform("sum_values")
+
+@register_transform(
+    name="sum_values",
+    column_params=["columns"],
+    required_params=["columns", "target_column"]
+)
 def transform_sum_values(data, params):
     cols = params.get("columns", [])
     target = params.get("target_column")
@@ -394,7 +498,12 @@ def transform_sum_values(data, params):
         row[target] = sum_values([row.get(c) for c in cols])
     return data
 
-@register_transform("average_values")
+
+@register_transform(
+    name="average_values",
+    column_params=["columns"],
+    required_params=["columns", "target_column"]
+)
 def transform_average_values(data, params):
     cols = params.get("columns", [])
     target = params.get("target_column")
@@ -402,7 +511,12 @@ def transform_average_values(data, params):
         row[target] = average_values([row.get(c) for c in cols])
     return data
 
-@register_transform("min_value")
+
+@register_transform(
+    name="min_value",
+    column_params=["columns"],
+    required_params=["columns", "target_column"]
+)
 def transform_min_value(data, params):
     cols = params.get("columns", [])
     target = params.get("target_column")
@@ -410,7 +524,12 @@ def transform_min_value(data, params):
         row[target] = min_value([row.get(c) for c in cols])
     return data
 
-@register_transform("max_value")
+
+@register_transform(
+    name="max_value",
+    column_params=["columns"],
+    required_params=["columns", "target_column"]
+)
 def transform_max_value(data, params):
     cols = params.get("columns", [])
     target = params.get("target_column")
@@ -418,7 +537,12 @@ def transform_max_value(data, params):
         row[target] = max_value([row.get(c) for c in cols])
     return data
 
-@register_transform("count_values")
+
+@register_transform(
+    name="count_values",
+    column_params=["columns"],
+    required_params=["columns", "target_column"]
+)
 def transform_count_values(data, params):
     cols = params.get("columns", [])
     target = params.get("target_column")
@@ -426,13 +550,23 @@ def transform_count_values(data, params):
         row[target] = count_values([row.get(c) for c in cols])
     return data
 
-@register_transform("group_by_aggregate")
+
+@register_transform(
+    name="group_by_aggregate",
+    column_params=["group_by_columns"],
+    required_params=["group_by_columns", "aggregations"]
+)
 def transform_group_by_aggregate(data, params):
     group_cols = params.get("group_by_columns", [])
     aggregations = params.get("aggregations", {})
     return group_by_aggregate(data, group_cols, aggregations)
 
-@register_transform("date_difference")
+
+@register_transform(
+    name="date_difference",
+    column_params=["column1", "column2"],
+    required_params=["column1", "column2", "target_column"]
+)
 def transform_date_difference(data, params):
     col1 = params.get("column1")
     col2 = params.get("column2")
@@ -440,30 +574,51 @@ def transform_date_difference(data, params):
     unit = params.get("unit", "days")
     swap = params.get("swap_if_first_date_less_than_second", False)
     for row in data:
-        row[target] = date_difference(row.get(col1), row.get(col2), unit=unit, swap_if_first_date_less_than_second=swap)
+        row[target] = date_difference(
+            row.get(col1),
+            row.get(col2),
+            unit=unit,
+            swap_if_first_date_less_than_second=swap
+        )
     return data
 
-@register_transform("date_difference_precise")
+
+@register_transform(
+    name="date_difference_precise",
+    column_params=["column1", "column2"],
+    required_params=["column1", "column2", "target_column"]
+)
 def transform_date_difference_precise(data, params):
     col1 = params.get("column1")
     col2 = params.get("column2")
     target = params.get("target_column")
     swap = params.get("swap_if_first_date_less_than_second", False)
     for row in data:
-        row[target] = date_difference_precise(row.get(col1), row.get(col2), swap_if_first_date_less_than_second=swap)
+        row[target] = date_difference_precise(
+            row.get(col1),
+            row.get(col2),
+            swap_if_first_date_less_than_second=swap
+        )
     return data
 # -------------------------
 # Main Transform Dispatcher
 # -------------------------
 
-def transform_data(data, config):
-    for op, params in config.items():
+def transform_data(data, steps):
+
+    for step in steps:
+        op = step.get("op")
+        params = {k: v for k, v in step.items() if k != "op"}
+
         func = TRANSFORM_FUNCTIONS.get(op)
+
         if not func:
             logger.warning(f"Unknown transformation: {op}")
             continue
+
         try:
             data = func(data, params)
         except Exception as e:
             logger.exception(f"Error running transformation '{op}': {e}")
+
     return data
