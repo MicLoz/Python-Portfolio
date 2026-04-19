@@ -27,11 +27,11 @@ def generate_test_data():
         {"id": 6, "age": 40, "price": 50.0, "quantity": 3,
          "date": "15/03/2024", "category": "A", "text": "different date format"},
         {"id": 10, "age": 63, "price": 34.7, "quantity": 90,
-         "date": "2021-12-29 11:34:59.996", "category": "A", "text": "different date format"},
+         "date": "2021-12-29 11:34:59.996", "category": "A", "text": "different date format"}, #This date not being recognised. Needs Fixing.
         {"id": 11, "age": 50, "price": 20.0, "quantity": 5,
-         "date": "2023/12/31", "category": "B", "text": "US/ISO date formats"},
+         "date": "2023/12/31", "category": "B", "text": "US/ISO date formats"}, #This date not being recognised. Needs Fixing.
         {"id": 12, "age": 45, "price": 15.0, "quantity": 10,
-         "date": "12-25-2023", "category": "B", "text": "MM-DD-YYYY format"},
+         "date": "12-25-2023", "category": "B", "text": "MM-DD-YYYY format"}, #This date not being recognised. Needs Fixing.
 
         # 7. Extreme numeric values
         {"id": 7, "age": 999999999, "price": 1e308, "quantity": 0,
