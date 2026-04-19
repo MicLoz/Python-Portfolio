@@ -1,13 +1,19 @@
 from django.contrib import admin
-from .models import Product, ProductImage
+from .models import Product, ProductImage, Category
 
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     extra = 1
 
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('title_display', 'price', 'created_at')
+    list_display = ('title_display', 'price', 'created_at', 'category')
+    list_filter = ('category',)
     search_fields = ('title',)
     inlines = [ProductImageInline]
 
