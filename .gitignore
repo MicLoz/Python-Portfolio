@@ -36,3 +36,6 @@ build/
 dist/
 *.egg-info/
 /Project1_DataPipeline/scripts/Notes.txt
+
+# Django
+db.sqlite3
