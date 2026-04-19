@@ -1,0 +1,17 @@
+<h1>{{ product.title }}</h1>
+
+<p>{{ product.description }}</p>
+<p>£{{ product.price }}</p>
+
+<h3>Images</h3>
+
+{% for image in product.images.all %}
+    <div>
+        <img src="{{ image.image.url }}" width="300">
+        {% if image.is_main %}
+            <strong>(MAIN)</strong>
+        {% endif %}
+    </div>
+{% endfor %}
+
+<a href="/products/">Back</a>
