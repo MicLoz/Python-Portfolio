@@ -1,7 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Product, Category
-
-# Create your views here.
+from .models import Product, Category, Order, OrderItem
 
 def product_list(request):
     products = Product.objects.all()
@@ -58,10 +56,15 @@ def cart_view(request):
             if product_id.startswith('qty_'):
                 pid = product_id.replace('qty_', '')
 
-                if quantity == '0':
+                try:
+                    qty = max(0, int(quantity))
+                except ValueError:
+                    continue
+
+                if qty == '0':
                     cart.pop(pid, None)
                 else:
-                    cart[pid] = int(quantity)
+                    cart[pid] = qty
 
         request.session['cart'] = cart
 
@@ -95,14 +98,25 @@ def checkout(request):
         email = request.POST.get('email')
         address = request.POST.get('address')
 
+        if not name or not email or not address:
+            return render(request, 'shop/checkout.html', {
+                'error': 'All fields are required'
+            })
+
+        total = 0
+
         order = Order.objects.create(
             name=name,
             email=email,
-            address=address
+            address=address,
+            total=0
         )
 
         for product_id, quantity in cart.items():
-            product = Product.objects.get(id=product_id)
+            product = get_object_or_404(Product, id=product_id)
+
+            item_total = product.price * quantity
+            total += item_total
 
             OrderItem.objects.create(
                 order=order,
@@ -111,12 +125,18 @@ def checkout(request):
                 price=product.price
             )
 
+        # update total AFTER calculation
+        order.total = total
+        order.save()
+
         # clear cart
         request.session['cart'] = {}
 
         return redirect('order_success')
 
-    return render(request, 'shop/checkout.html')
+    return render(request, 'shop/checkout.html',{
+        'cart': cart
+    })
 
 def order_success(request):
     return render(request, 'shop/success.html')
