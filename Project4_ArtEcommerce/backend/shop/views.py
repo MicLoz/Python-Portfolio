@@ -2,8 +2,9 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import Product, Category, Order, OrderItem
 from decimal import Decimal
 
-def get_cart_display(cart):
+def evaluate_cart(cart):
     products = []
+    items = []
     total = Decimal("0.00")
 
     for product_id, quantity in cart.items():
@@ -18,27 +19,15 @@ def get_cart_display(cart):
         item_total = product.price * quantity
         total += item_total
 
+        # UI data
         product.quantity = quantity
         product.total_price = item_total
         products.append(product)
 
-    return products, total
-
-def get_cart_items(cart):
-    items = []
-
-    for product_id, quantity in cart.items():
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            continue
-
-        if quantity <= 0:
-            continue
-
+        # DB data
         items.append((product, quantity))
 
-    return items
+    return products, total, items
 
 def product_list(request):
     products = Product.objects.all()
@@ -104,7 +93,7 @@ def cart_view(request):
 
         request.session['cart'] = cart
 
-    products, total = get_cart_display(cart)
+    products, total, _ = evaluate_cart(cart)
 
     context = {
         'products': products,
@@ -129,8 +118,7 @@ def checkout(request):
                 'error': 'All fields are required'
             })
 
-        products, total = get_cart_display(cart)
-        items_to_create = get_cart_items(cart)
+        products, total, items_to_create = evaluate_cart(cart)
 
         # Prevent empty orders
         if not items_to_create:
@@ -158,7 +146,7 @@ def checkout(request):
 
         return redirect('order_success')
 
-    products, total = get_cart_data(cart)
+    products, total, _ = evaluate_cart(cart)
 
     return render(request, 'shop/checkout.html',{
         'products': products,
