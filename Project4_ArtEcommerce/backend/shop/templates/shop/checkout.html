@@ -1,11 +1,86 @@
-<h1>Checkout</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout</title>
+</head>
 
-<form method="post">
-    {% csrf_token %}
+<body>
 
-    <input type="text" name="name" placeholder="Your Name" required><br><br>
-    <input type="email" name="email" placeholder="Email" required><br><br>
-    <textarea name="address" placeholder="Address" required></textarea><br><br>
+<header>
+    <nav>
+        <a href="/products/">Shop</a> |
+        <a href="{% url 'cart' %}">Basket</a>
+    </nav>
+</header>
 
-    <button type="submit">Place Order</button>
-</form>
+<main>
+
+    <h1>Checkout</h1>
+
+    {% if error %}
+        <p style="color: red;" role="alert">{{ error }}</p>
+    {% endif %}
+
+    <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+
+        <!-- LEFT: FORM -->
+        <section style="flex: 1; min-width: 300px;">
+            <h2>Your Details</h2>
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div>
+                    <label for="name">Full Name</label><br>
+                    <input id="name" type="text" name="name" required>
+                </div>
+
+                <br>
+
+                <div>
+                    <label for="email">Email Address</label><br>
+                    <input id="email" type="email" name="email" required>
+                </div>
+
+                <br>
+
+                <div>
+                    <label for="address">Shipping Address</label><br>
+                    <textarea id="address" name="address" rows="4" required></textarea>
+                </div>
+
+                <br>
+
+                <button type="submit">Place Order</button>
+            </form>
+        </section>
+
+        <!-- RIGHT: ORDER SUMMARY -->
+        <aside style="flex: 1; min-width: 300px;">
+            <h2>Order Summary</h2>
+
+            {% if products %}
+                <ul>
+                    {% for product in products %}
+                        <li>
+                            {{ product.title }}
+                            (x{{ product.quantity }})
+                            — £{{ product.total_price }}
+                        </li>
+                    {% endfor %}
+                </ul>
+
+                <h3>Total: £{{ total }}</h3>
+            {% else %}
+                <p>Your basket is empty.</p>
+            {% endif %}
+        </aside>
+
+    </div>
+
+</main>
+
+</body>
+</html>

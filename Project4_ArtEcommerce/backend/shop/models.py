@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -22,6 +23,9 @@ class Product(models.Model):
         blank=True,
         on_delete=models.SET_NULL
     )
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.title
@@ -64,8 +68,15 @@ class Order(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField()
     address = models.TextField()
-    total = models.DecimalField(max_digits=8, decimal_places=2)
+    total = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("0.00")
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Order {self.id} - {self.name}"
@@ -73,9 +84,9 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='order_items', on_delete=models.CASCADE)
     quantity = models.IntegerField()
     price = models.DecimalField(max_digits=8, decimal_places=2)
 
     def __str__(self):
-        return f"{self.product.title} x {self.quantity}"
+        return f"Order {self.order.id} - {self.product.title} x {self.quantity}"

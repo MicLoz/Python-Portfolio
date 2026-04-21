@@ -1,11 +1,36 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Product, Category, Order, OrderItem
+from decimal import Decimal
+
+def get_cart_data(cart):
+    products = []
+    total = Decimal("0.00")
+    items = []  # <-- for checkout use
+
+    for product_id, quantity in cart.items():
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            continue
+
+        if not product or quantity <= 0:
+            continue
+
+        item_total = product.price * quantity
+        total += item_total
+
+        # For UI
+        product.quantity = quantity
+        product.total_price = item_total
+        products.append(product)
+
+        # For DB
+        items.append((product, quantity))
+
+    return products, total, items
 
 def product_list(request):
     products = Product.objects.all()
-
-    print(products.query)
-    print(products.count())
 
     categories = Category.objects.all()
 
@@ -45,7 +70,7 @@ def add_to_cart(request, product_id):
 
     request.session['cart'] = cart
 
-    return redirect('product_list')
+    return redirect(request.META.get('HTTP_REFERER', 'product_list'))
 
 def cart_view(request):
     cart = request.session.get('cart', {})
@@ -61,24 +86,14 @@ def cart_view(request):
                 except ValueError:
                     continue
 
-                if qty == '0':
+                if qty == 0:
                     cart.pop(pid, None)
                 else:
                     cart[pid] = qty
 
         request.session['cart'] = cart
 
-    products = []
-    total = 0
-
-    for product_id, quantity in cart.items():
-        product = get_object_or_404(Product, id=product_id)
-
-        product.quantity = quantity
-        product.total_price = product.price * quantity
-
-        total += product.total_price
-        products.append(product)
+    products, total, _ = get_cart_data(cart)
 
     context = {
         'products': products,
@@ -103,21 +118,22 @@ def checkout(request):
                 'error': 'All fields are required'
             })
 
-        total = 0
+        products, total, items_to_create = get_cart_data(cart)
 
+        # Prevent empty orders
+        if not items_to_create:
+            return redirect('cart')
+
+        # Create order AFTER validation
         order = Order.objects.create(
             name=name,
             email=email,
             address=address,
-            total=0
+            total=Decimal(total)
         )
 
-        for product_id, quantity in cart.items():
-            product = get_object_or_404(Product, id=product_id)
-
-            item_total = product.price * quantity
-            total += item_total
-
+        # Create order items
+        for product, quantity in items_to_create:
             OrderItem.objects.create(
                 order=order,
                 product=product,
@@ -125,17 +141,16 @@ def checkout(request):
                 price=product.price
             )
 
-        # update total AFTER calculation
-        order.total = total
-        order.save()
-
         # clear cart
         request.session['cart'] = {}
 
         return redirect('order_success')
 
+    products, total = get_cart_data(cart)
+
     return render(request, 'shop/checkout.html',{
-        'cart': cart
+        'products': products,
+        'total': total
     })
 
 def order_success(request):
