@@ -2,10 +2,9 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import Product, Category, Order, OrderItem
 from decimal import Decimal
 
-def get_cart_data(cart):
+def get_cart_display(cart):
     products = []
     total = Decimal("0.00")
-    items = []  # <-- for checkout use
 
     for product_id, quantity in cart.items():
         try:
@@ -13,21 +12,33 @@ def get_cart_data(cart):
         except Product.DoesNotExist:
             continue
 
-        if not product or quantity <= 0:
+        if quantity <= 0:
             continue
 
         item_total = product.price * quantity
         total += item_total
 
-        # For UI
         product.quantity = quantity
         product.total_price = item_total
         products.append(product)
 
-        # For DB
+    return products, total
+
+def get_cart_items(cart):
+    items = []
+
+    for product_id, quantity in cart.items():
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            continue
+
+        if quantity <= 0:
+            continue
+
         items.append((product, quantity))
 
-    return products, total, items
+    return items
 
 def product_list(request):
     products = Product.objects.all()
@@ -93,7 +104,7 @@ def cart_view(request):
 
         request.session['cart'] = cart
 
-    products, total, _ = get_cart_data(cart)
+    products, total = get_cart_display(cart)
 
     context = {
         'products': products,
@@ -118,7 +129,8 @@ def checkout(request):
                 'error': 'All fields are required'
             })
 
-        products, total, items_to_create = get_cart_data(cart)
+        products, total = get_cart_display(cart)
+        items_to_create = get_cart_items(cart)
 
         # Prevent empty orders
         if not items_to_create:
