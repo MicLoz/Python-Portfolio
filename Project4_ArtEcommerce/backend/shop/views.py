@@ -1,7 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Product, Category, Order, OrderItem
 from decimal import Decimal
+from django.views.decorators.csrf import csrf_exempt # Temp fix for testing on iPhone.
 
+@csrf_exempt
 def evaluate_cart(cart):
     products = []
     items = []
@@ -29,6 +31,7 @@ def evaluate_cart(cart):
 
     return products, total, items
 
+@csrf_exempt
 def product_list(request):
     products = Product.objects.all()
 
@@ -54,10 +57,12 @@ def product_list(request):
 
     return render(request, 'shop/product_list.html', context)
 
+@csrf_exempt
 def product_detail(request, pk):
     product = get_object_or_404(Product, pk=pk)
     return render(request, 'shop/product_detail.html', {'product': product})
 
+@csrf_exempt
 def add_to_cart(request, product_id):
     cart = request.session.get('cart', {})
 
@@ -72,6 +77,7 @@ def add_to_cart(request, product_id):
 
     return redirect(request.META.get('HTTP_REFERER', 'product_list'))
 
+@csrf_exempt
 def cart_view(request):
     cart = request.session.get('cart', {})
 
@@ -102,6 +108,7 @@ def cart_view(request):
 
     return render(request, 'shop/cart.html', context)
 
+@csrf_exempt
 def checkout(request):
     cart = request.session.get('cart', {})
 
@@ -153,6 +160,7 @@ def checkout(request):
         'total': total
     })
 
+@csrf_exempt
 def order_success(request):
     return render(request, 'shop/success.html')
 

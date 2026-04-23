@@ -4,29 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout</title>
+
+        <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #faf7f2;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        header {
+            padding: 15px 20px;
+            background: white;
+            border-bottom: 1px solid #eee;
+        }
+
+        nav a {
+            text-decoration: none;
+            margin-right: 10px;
+            color: #444;
+        }
+
+        .checkout-page {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .page-title {
+            margin-bottom: 20px;
+        }
+
+        .checkout-grid {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #eee;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-top: 5px;
+        }
+
+        button {
+            background: #222;
+            color: white;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .total {
+            font-size: 18px;
+            margin-top: 15px;
+        }
+    </style>
+
 </head>
 
 <body>
 
 <header>
     <nav>
-        <a href="/products/">Shop</a> |
+        <a href="{% url 'product_list' %}">Shop</a> |
         <a href="{% url 'cart' %}">Basket</a>
     </nav>
 </header>
 
-<main>
-
-    <h1>Checkout</h1>
+<main class="checkout-page">
+    <h1 class="page-title">Checkout</h1>
 
     {% if error %}
         <p style="color: red;" role="alert">{{ error }}</p>
     {% endif %}
 
-    <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+    <div class="checkout-grid">
 
         <!-- LEFT: FORM -->
-        <section style="flex: 1; min-width: 300px;">
+        <section class="card" style="flex: 1; min-width: 300px;">
             <h2>Your Details</h2>
 
             <form method="post">
@@ -53,29 +136,41 @@
 
                 <br>
 
-                <button type="submit">Place Order</button>
+                <button type="submit" style="width: 100%;">
+                    Place Order
+                </button>
             </form>
         </section>
 
         <!-- RIGHT: ORDER SUMMARY -->
-        <aside style="flex: 1; min-width: 300px;">
+        <aside class="card" style="flex: 1; min-width: 300px;">
             <h2>Order Summary</h2>
 
             {% if products %}
-                <ul>
-                    {% for product in products %}
-                        <li>
-                            {{ product.title }}
-                            (x{{ product.quantity }})
-                            — £{{ product.total_price }}
-                        </li>
-                    {% endfor %}
-                </ul>
+            <table>
+                <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Total</th>
+                </tr>
 
-                <h3>Total: £{{ total }}</h3>
-            {% else %}
-                <p>Your basket is empty.</p>
-            {% endif %}
+                {% for product in products %}
+                <tr>
+                    <td>{{ product.title }}</td>
+                    <td>{{ product.quantity }}</td>
+                    <td>£{{ product.total_price|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+
+            <div class="total">
+                <strong>Total: £{{ total|floatformat:2 }}</strong>
+            </div>
+
+        {% else %}
+            <p>Your basket is empty.</p>
+        {% endif %}
+
         </aside>
 
     </div>
